@@ -316,7 +316,9 @@ class NH_Relaxation:
             #     plt.plot(time_lags, acf_values[:, i], label=f'ACF {i}')
             plt.plot(time_lags, acf_values)
             plt.plot(time_lags, exp_decay(time_lags, tau_c_estimate), linestyle="--", color='black', linewidth=2)
-            plt.title("tau_c Estimate from ACF")
+            plt.title("tau_c Estimate from FFT ACF")
+            plt.xlabel("Lag Time (frames)")
+            plt.ylabel("ACF")
             #plt.legend()
             plt.savefig("acf_tau_c.png", dpi=300)
 
