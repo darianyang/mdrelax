@@ -163,6 +163,7 @@ with open(f'{out}/cc.ndx', 'w') as f:
 len_traj    = e_frame - b_frame
 n_blocks_bb = int( len_traj / l_blocks_bb )
 diff        = len_traj - n_blocks_bb * l_blocks_bb
+print(f"# {len_traj=}, {n_blocks_bb=}, {diff=}")
                             
 if diff > 0:
     print( f'WARNING: The selected block length is not an integer factor of the trajectory length. {diff} frames will be skipped at the end of the trajectory.' )

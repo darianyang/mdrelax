@@ -1,2 +1,4 @@
 *.xtc
 tcf*
+*.lock
+*.npz
