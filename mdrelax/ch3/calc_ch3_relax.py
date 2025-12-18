@@ -154,7 +154,7 @@ class NH_Relaxation:
 
         return nh_vectors
 
-    # Compute ACF for the NH bond vectors => C_I(t)
+    # Compute ACF for a set of bond vectors => C_I(t)
     def calculate_acf(self, vectors):
         """
         Calculate the autocorrelation function (ACF) for NH bond vectors using the 
@@ -177,7 +177,8 @@ class NH_Relaxation:
         #       but note that the bond lengths are fixed in the simulation (SHAKE)
         #       so the norm is not fully accurate, need some adjustment to correct this
         unit_vectors = vectors / np.linalg.norm(vectors, axis=2, keepdims=True)
-        #unit_vectors = vectors / (np.linalg.norm(vectors, axis=2, keepdims=True) + 0.02) # testing bond length correction factor
+        # testing bond length correction factor
+        #unit_vectors = vectors / (np.linalg.norm(vectors, axis=2, keepdims=True) + 0.02)
         # print("Vectors: ", vectors)
         # print("Bond Length: ", np.linalg.norm(vectors, axis=2, keepdims=True))
         # print("Unit Vectors: ", unit_vectors)
@@ -207,7 +208,7 @@ class NH_Relaxation:
 
     def calculate_acf_fft(self, vectors):
         """
-        Compute the NH bond vector autocorrelation function using an FFT-based method.
+        Compute the bond vector autocorrelation function using an FFT-based method.
 
         Computes:
             C(t) = < P2( u(0) · u(t) ) >
@@ -224,7 +225,7 @@ class NH_Relaxation:
         np.ndarray
             ACF array of shape (max_lag, n_bonds)
         """
-        # Normalize NH bond vectors
+        # Normalize bond vectors
         u = vectors / np.linalg.norm(vectors, axis=2, keepdims=True)
 
         n_frames, n_bonds, _ = u.shape

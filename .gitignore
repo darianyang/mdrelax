@@ -2,3 +2,4 @@
 tcf*
 *.lock
 *.npz
+*.swp
