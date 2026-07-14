@@ -3,3 +3,4 @@ tcf*
 *.lock
 *.npz
 *.swp
+.DS_Store
