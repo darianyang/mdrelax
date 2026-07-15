@@ -36,6 +36,21 @@ def test_nh_deterministic_snapshot(nh_df):
 
 
 @needs_t4l
+def test_nh_estimated_tau_c_is_physical():
+    # tau_c must be estimated from the un-aligned ACF (overall tumbling present).
+    # Aligning first strips tumbling and estimate_tau_c just fits the S^2
+    # plateau, giving a wildly inflated value (~90 ns on this fixture). Guard
+    # that the estimate stays in a physically sensible band near T4L's true
+    # ~10.5 ns and never regresses to that buggy aligned-ACF behavior.
+    from mdrelax import NHRelaxation
+    r = NHRelaxation(str(T4L_PDB), str(T4L_XTC), fields_MHz=600.0,
+                     tau_c_ns=None, traj_step=1, max_lag_fraction=0.5,
+                     fit_fraction=0.4, verbose=False)
+    r.run()
+    assert 6.0 < r.tau_c_ns < 15.0     # physical; excludes the ~90 ns bug
+
+
+@needs_t4l
 def test_nh_close_to_experiment(nh_df):
     exp = np.loadtxt(DATA_NH / "600MHz-R1R2NOE.dat")  # resid R1 e R2 e NOE e
     md = nh_df.set_index("resid")

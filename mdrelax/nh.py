@@ -26,13 +26,22 @@ class NHRelaxation:
 
     Parameters
     ----------
-    topology, trajectory : str    input structure and trajectory
-    fields_MHz : float or list    1H Larmor frequency(ies) in MHz
-    tau_c_ns : float or None       isotropic tau_c (ns); estimated if None
-    traj_step : int                stride when loading the trajectory
-    align_traj : bool              align to CA to remove tumbling (default True)
-    max_lag_fraction : float       ACF length as a fraction of the trajectory
-    fit_fraction : float           fraction of the ACF used for model fitting
+    topology, trajectory : str     
+        input structure and trajectory
+    fields_MHz : float or list     
+        1H Larmor frequency(ies) in MHz
+    tau_c_ns : float or None       
+        isotropic tau_c (ns); estimated if None
+    traj_step : int                
+        stride when loading the trajectory
+    align_traj : bool              
+        align to CA to remove tumbling (default True)
+    max_lag_fraction : float       
+        ACF length as a fraction of the trajectory
+    fit_fraction : float           
+        fraction of the ACF used for model fitting
+    verbose : bool
+        print progress messages
     """
 
     def __init__(self, topology, trajectory, fields_MHz=600.0, tau_c_ns=None,
@@ -60,26 +69,40 @@ class NHRelaxation:
         self.n_frames = len(self.u.trajectory)
         self._log(f"Loaded {self.n_frames} frames, dt={self.dt_ps} ps "
                   f"({self.n_frames * self.dt_ps / 1000:.2f} ns)")
-        if self.align_traj:
-            ref = mda.Universe(self.topology)
-            align.AlignTraj(self.u, ref, select="protein and name CA",
-                            in_memory=True).run()
+
+    def _align(self):
+        """Align to CA in place, removing overall tumbling from the in-memory
+        coordinates so the NH ACFs plateau at S^2."""
+        ref = mda.Universe(self.topology)
+        align.AlignTraj(self.u, ref, select="protein and name CA",
+                        in_memory=True).run()
 
     def run(self):
         """Run the pipeline and return a pandas DataFrame of per-residue rates."""
         self._load()
         pairs = geometry.find_nh_pairs(self.u)
         self._log(f"Found {len(pairs)} NH pairs")
-
-        vecs = geometry.collect_vectors(self.u, pairs, step=None)
         max_lag = max(2, int(self.n_frames * self.max_lag_fraction))
-        acfs = acf.p2_acf_many(vecs, max_lag=max_lag)   # (max_lag, n_pairs)
 
+        # tau_c must be estimated from a trajectory that still contains overall
+        # tumbling, so build the total ACF from the un-aligned NH vectors before
+        # any alignment. (Aligning first would strip tumbling and the estimate
+        # would just fit the S^2 plateau -> meaningless tau_c.)
         if self.tau_c_ns is None:
-            self.tau_c_ns = tumbling.estimate_tau_c(acfs, self.dt_ps,
+            total_vecs = geometry.collect_vectors(self.u, pairs, step=None)
+            total_acfs = acf.p2_acf_many(total_vecs, max_lag=max_lag)
+            self.tau_c_ns = tumbling.estimate_tau_c(total_acfs, self.dt_ps,
                                                     self.fit_fraction)
-            self._log(f"Estimated tau_c = {self.tau_c_ns:.3f} ns")
+            self._log(f"Estimated tau_c = {self.tau_c_ns:.3f} ns "
+                      f"(from un-aligned ACF)")
         tau_c_ps = self.tau_c_ns * 1000.0
+
+        # internal ACF for the model-free fits: align to remove overall tumbling
+        # so the correlation functions plateau at S^2.
+        if self.align_traj:
+            self._align()
+        vecs = geometry.collect_vectors(self.u, pairs, step=None)
+        acfs = acf.p2_acf_many(vecs, max_lag=max_lag)   # (max_lag, n_pairs)
 
         n_fit = max(10, int(max_lag * self.fit_fraction))
         t_fit = np.arange(n_fit) * self.dt_ps

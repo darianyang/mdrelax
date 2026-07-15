@@ -1,8 +1,9 @@
 """Relaxation-rate expressions from spectral-density values.
 
 Backbone 15N NH: R1, R2, heteronuclear NOE (dipolar + CSA).
-Side-chain methyl 2H: R(Dz), R(Dy), R3, R4 (quadrupolar), matching the ABSURDer
-convention where the 2/5 prefactor already lives inside J.
+Side-chain methyl 2H: the three experimentally measured quadrupolar rates
+R(Dz), R(Dy), R(3Dz^2-2), matching the ABSURDer convention where the 2/5
+prefactor already lives inside J.
 """
 
 import numpy as np
@@ -50,24 +51,25 @@ def nh_rates_from_J(J, field_MHz):
 def deuterium_rates(J0, JwD, J2wD, chi_q=CHI_Q):
     """Methyl 2H quadrupolar relaxation rates (ABSURDer convention).
 
-    R_Dz : longitudinal decay of Dz          (3/16) chi^2 (J(wD) + 4 J(2wD))
-    R_Dy : transverse / RQ                    (1/32) chi^2 (9 J0 + 15 J(wD) + 6 J(2wD))
-    R3   : decay of 3Dz^2-2 term             (3/16) chi^2 (3 J(wD))
-    R4   :                                    (3/16) chi^2 (J(wD) + 2 J(2wD))
+    These are the three deuterium single-spin relaxation rates measured
+    experimentally for methyl groups (Millet/Kay; Tugarinov):
+
+    R_Dz    : longitudinal decay of Dz       (3/16) chi^2 (J(wD) + 4 J(2wD))
+    R_Dy    : transverse / R_Q               (1/32) chi^2 (9 J0 + 15 J(wD) + 6 J(2wD))
+    R_3Dz2  : quadrupolar order 3Dz^2-2      (3/16) chi^2 (3 J(wD))
 
     ``J*`` are values of the reduced multi-exponential spectral density
     (:func:`mdrelax.spectral_density.J_multiexp`) at 0, wD and 2wD.
 
     Returns
     -------
-    (R_Dz, R_Dy, R3, R4) : tuple of float (s^-1)
+    (R_Dz, R_Dy, R_3Dz2) : tuple of float (s^-1)
     """
     pre2 = chi_q ** 2
     R_Dz = 3.0 / 16.0 * pre2 * (JwD + 4 * J2wD)
     R_Dy = 1.0 / 32.0 * pre2 * (9 * J0 + 15 * JwD + 6 * J2wD)
-    R3 = 3.0 / 16.0 * pre2 * (3 * JwD)
-    R4 = 3.0 / 16.0 * pre2 * (JwD + 2 * J2wD)
-    return R_Dz, R_Dy, R3, R4
+    R_3Dz2 = 3.0 / 16.0 * pre2 * (3 * JwD)
+    return R_Dz, R_Dy, R_3Dz2
 
 
 def methyl_omega_D(field_MHz):

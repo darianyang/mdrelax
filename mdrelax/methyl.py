@@ -28,7 +28,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="MDAnalysis")
 
 
 class MethylRelaxation:
-    """Methyl 2H relaxation-rate calculator (R_Dz, R_Dy, R3, R4).
+    """Methyl 2H relaxation-rate calculator (R_Dz, R_Dy, R_3Dz2).
 
     Parameters
     ----------
@@ -47,6 +47,13 @@ class MethylRelaxation:
     n_free : int                     free amplitudes in the internal fit (5)
     accuracy : int                   exponential-sampling density (80)
     max_lag_fraction : float         ACF length as a fraction of the trajectory
+
+    Attributes set by :meth:`run`
+    -----------------------------
+    results : pandas.DataFrame       the per-methyl rates
+    diffusion : dict or None         the axial diffusion-tensor fit (Diso, Dratio,
+                                     Dpar, Dper, axis, tau_c_ns); None when
+                                     ``tau_R_ns`` was supplied and no fit was done
     """
 
     def __init__(self, topology, trajectory, trajectory_fitted=None,
@@ -69,8 +76,18 @@ class MethylRelaxation:
             print(msg)
 
     # ── tumbling ────────────────────────────────────────────────────────────
-    def _compute_tau_R(self, groups):
-        """Per-methyl tau_R (ns) via backbone tau_M + axial diffusion tensor."""
+    def _compute_tau_R(self):
+        """Per-methyl tau_R via backbone tau_M + an axial diffusion tensor.
+
+        Locates the NH pairs and methyl groups on its own universe, built from
+        the tumbling-retaining trajectory, so every vector is read from the same
+        universe and the same frame.
+
+        Returns
+        -------
+        ({methyl_label: tau_R_ns}, fit) : the per-methyl tumbling times and the
+            axial diffusion-tensor fit (Diso, Dratio, Dpar, Dper, axis, tau_c_ns).
+        """
         u = mda.Universe(self.topology, self.trajectory, in_memory=True,
                          in_memory_step=self.traj_step)
         dt = float(u.trajectory.dt)
@@ -88,20 +105,27 @@ class MethylRelaxation:
             start_tau_ps=max(l_block_ps / 100.0, 5000.0),
             accuracy=100)
 
+        # reference geometry, all from frame 0 (collect_vectors left us at the end)
         u.trajectory[0]
+        groups = geometry.find_methyl_groups(u)
         nh_ref = np.array([p['H'].position - p['N'].position for p in pairs])
+        cc = np.array([g['C'].position - g['C_axis'].position for g in groups])
+
         fit = tumbling.fit_axial_diffusion(tauM, nh_ref)
         self._log(f"  Diso={fit['Diso']*1e-7:.3f}e7 s^-1  Dpar/Dper={fit['Dratio']:.3f}"
                   f"  tau_c={fit['tau_c_ns']:.2f} ns")
 
-        u.trajectory[0]
-        cc = np.array([g['C'].position - g['C_axis'].position for g in groups])
         tau_R = tumbling.methyl_tau_R(cc, fit['Diso'], fit['Dpar'],
                                       fit['Dper'], fit['axis'])
-        return tau_R, fit
+        return dict(zip([g['label'] for g in groups], tau_R)), fit
 
     # ── internal ACFs ───────────────────────────────────────────────────────
-    def _internal_acfs(self, groups):
+    def _internal_acfs(self):
+        """Methyl C-H P2 ACFs on the tumbling-free trajectory.
+
+        Finds the methyl groups itself: MDAnalysis atoms belong to the universe
+        they came from, so groups located elsewhere cannot be used here.
+        """
         if self.trajectory_fitted is not None:
             u = mda.Universe(self.topology, self.trajectory_fitted,
                              in_memory=True, in_memory_step=self.traj_step)
@@ -130,21 +154,16 @@ class MethylRelaxation:
     # ── main ────────────────────────────────────────────────────────────────
     def run(self):
         """Run the pipeline; return a per-methyl DataFrame of 2H rates."""
-        u0 = mda.Universe(self.topology, self.trajectory)
-        groups = geometry.find_methyl_groups(u0)
-        self._log(f"Found {len(groups)} methyl groups")
-
-        acfs, dt, n_frames, labels = self._internal_acfs(groups)
+        acfs, dt, n_frames, labels = self._internal_acfs()
         max_lag = acfs.shape[0]
+        self._log(f"Found {len(labels)} methyl groups")
 
         if self.tau_R_ns is not None:
             tau_R = np.array([self.tau_R_ns[l] for l in labels])
+            self.diffusion = None
         else:
             self._log("Estimating tumbling (backbone tau_M -> axial D tensor)...")
-            groups_t = geometry.find_methyl_groups(
-                mda.Universe(self.topology, self.trajectory))
-            tau_R_map = dict(zip([g['label'] for g in groups_t],
-                                 self._compute_tau_R(groups_t)[0]))
+            tau_R_map, self.diffusion = self._compute_tau_R()
             tau_R = np.array([tau_R_map[l] for l in labels])
 
         # exponentially spaced sampling (frames -> ps)
@@ -159,14 +178,14 @@ class MethylRelaxation:
             S2 = fitting.estimate_S2_tail(exp_t, ct, max_lag, self.ct_lim)
             fit = fitting.fit_internal_multiexp(times_ps, ct, S2, n_free=self.n_free)
             tau_R_s = tau_R[mi] * 1e-9
-            tred, w = fitting.reduced_times_and_weights(fit, tau_R_s)
-            Jv = J_multiexp(exp_freq, S2, tau_R_s, tred, w)
-            R_Dz, R_Dy, R3, R4 = deuterium_rates(Jv[0], Jv[1], Jv[2], CHI_Q)
+            t_red, w = fitting.reduced_times_and_weights(fit, tau_R_s)
+            Jv = J_multiexp(exp_freq, S2, tau_R_s, t_red, w)
+            R_Dz, R_Dy, R_3Dz2 = deuterium_rates(Jv[0], Jv[1], Jv[2], CHI_Q)
             rows.append(dict(label=label,
                              resid=int(label.split('-')[0][3:]) if '-' in label else -1,
                              field_MHz=self.field_MHz, S2_axis=S2,
                              tau_R_ns=tau_R[mi], R_Dz=R_Dz, R_Dy=R_Dy,
-                             R3=R3, R4=R4))
+                             R_3Dz2=R_3Dz2))
         df = pd.DataFrame(rows)
         self.results = df
         self._log(f"Mean @ {self.field_MHz} MHz: S2={df['S2_axis'].mean():.3f} "

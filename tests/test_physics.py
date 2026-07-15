@@ -44,12 +44,11 @@ def test_deuterium_rate_coefficients():
     # With a flat spectral density J0 = JwD = J2wD = J, the ABSURDer coefficients
     # give known combinations.
     J = 1e-9
-    R_Dz, R_Dy, R3, R4 = R.deuterium_rates(J, J, J, CHI_Q)
+    R_Dz, R_Dy, R_3Dz2 = R.deuterium_rates(J, J, J, CHI_Q)
     pre2 = CHI_Q ** 2
     assert R_Dz == pytest.approx(3 / 16 * pre2 * 5 * J, rel=1e-12)
     assert R_Dy == pytest.approx(1 / 32 * pre2 * 30 * J, rel=1e-12)
-    assert R3 == pytest.approx(3 / 16 * pre2 * 3 * J, rel=1e-12)
-    assert R4 == pytest.approx(3 / 16 * pre2 * 3 * J, rel=1e-12)
+    assert R_3Dz2 == pytest.approx(3 / 16 * pre2 * 3 * J, rel=1e-12)
 
 
 def test_nh_rates_physical_magnitudes():

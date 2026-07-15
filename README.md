@@ -5,7 +5,8 @@ Nuclear spin-relaxation rates from MD simulation trajectories.
 `mdrelax` computes, directly from an MD trajectory:
 
 * **Backbone amide ¹⁵N–¹H**: R₁, R₂, and the heteronuclear ¹⁵N-{¹H} NOE.
-* **Side-chain methyl ²H**: R(D_z), R(D_y), R₃, R₄.
+* **Side-chain methyl ²H**: the three experimentally measured rates R(D_z),
+  R(D_y), and R(3D_z²−2) (quadrupolar order).
 
 It is a pure-Python (numpy / scipy / MDAnalysis) reimplementation of the standard
 model-free (backbone) and spectral-density-mapping (methyl) workflows. The methyl
@@ -59,7 +60,8 @@ spectral density J(ω) with the overall τ_c reintroduced → dipolar + CSA rate
 2. Long-time plateau S² (tail average) + a 6-exponential internal fit.
 3. Per-methyl τ_R from backbone τ_M → axially symmetric diffusion tensor
    (`mdrelax.tumbling`, replacing pdbinertia + quadric).
-4. Multi-exponential J(ω) with τ_R reintroduced → ²H quadrupolar rates.
+4. Multi-exponential J(ω) with τ_R reintroduced → the three ²H quadrupolar rates
+   R(D_z), R(D_y), R(3D_z²−2).
 
 ## Package layout
 
@@ -76,7 +78,7 @@ mdrelax/
   methyl.py            MethylRelaxation orchestrator
   cli.py               mdrelax-nh / mdrelax-methyl entry points
 reference/absurder/    original ABSURDer scripts (provenance / cross-check)
-examples/              validate_nh.py, validate_ch3.py
+examples/              validate_nh.py, validate_ch3.py, validate_ch3_exp.py
 tests/                 pytest suite
 ```
 
@@ -92,10 +94,27 @@ pytest -q
   (`data-nh`): mean R₁ 1.13 vs 1.18, R₂ 13.1 vs 13.9, NOE 0.86 vs 0.79 s⁻¹.
   Per-residue detail is limited by the short trajectory; magnitudes are correct.
   → `python examples/validate_nh.py`
-* **Methyl ²H** vs ABSURDer `rates.pkl` (1 µs ff15ipq T4L): the pure-Python
-  fit/J/rate port reproduces all four rates per methyl (median error < 2 %,
-  r > 0.999). The pure-Python τ_R matches the pdbinertia+quadric reference to
-  ~0.15 ns (Diso within ~1.3 %). → `python examples/validate_ch3.py`
+* **Methyl ²H** — two cross-checks with deliberately different scope:
+  * **vs ABSURDer** `rates.pkl` (1 µs ff15ipq T4L) — `examples/validate_ch3.py`.
+    Consumes ABSURDer's *precomputed* TCFs so that only the fit / J(ω) / rate
+    port is under test; it therefore pins ABSURDer's own run settings
+    (`accuracy`, `ct_lim`, `wD`) to compare like for like. Reproduces all three
+    rates at **r > 0.9999, MAD < 0.2 s⁻¹**. The pure-Python τ_R matches the
+    pdbinertia+quadric reference to ~0.15 ns (Diso within ~1.3 %).
+  * **vs experiment** (`data-ch3/experimental/`, 73 measured methyls @ 950 MHz)
+    — `examples/validate_ch3_exp.py`. The real workflow: hand it a trajectory
+    and `MethylRelaxation` computes the TCFs itself, deriving the whole time
+    axis from the trajectory. Accepts `--topology/--traj/--fitted/--field`, so
+    it runs on your own data.
 
-Reference data lives in `data-nh/`, `data-ch3/`, and `data-ch3-ff15ipq/`
-(ABSURDer TCFs, τ_R, and rates for the 1 µs ff15ipq T4L trajectory).
+    Note τ_R: overall tumbling (τ_c ≈ 13 ns for T4L) can only be measured from a
+    trajectory much longer than τ_c. The bundled 10 ns trajectory is ABSURDer's
+    *methyl* block length — right for fast internal motion, far too short for
+    tumbling (it gives τ_c ≈ 8.7 ns vs the true ≈ 12.9 ns). So τ_R defaults to
+    the 1 µs backbone fit, exactly as ABSURDer does (`--lblocks_m 10000` for
+    methyls, `--lblocks_bb 1000000` for the backbone). Use `--estimate-tau-R`
+    when your trajectory is long compared with τ_c.
+
+Reference data lives in `data-nh/`, `data-ch3/` (experimental NMR + ABSURDer
+reweighting data), and `data-ch3-ff15ipq/` (ABSURDer TCFs, τ_R, and rates for the
+1 µs ff15ipq T4L trajectory).
