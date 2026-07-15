@@ -43,6 +43,15 @@ class MethylRelaxation:
     field_MHz : float                1H Larmor frequency (MHz)
     tau_R_ns : dict or None          {methyl_label: tau_R_ns} to override the
                                      diffusion-tensor estimate
+    diffusion_model : {None, 'iso', 'axial', 'aniso'}
+        Rotational-diffusion model fit to the backbone tau_M when tau_R is not
+        supplied.  Which one suits a protein depends on its shape: 'iso' for a
+        globular one, 'axial' (what ABSURDer assumes) for a prolate/oblate one,
+        'aniso' when no two principal values are alike.  The default None fits
+        all three and F-tests between them
+        (:func:`mdrelax.tumbling.select_diffusion_model`), which costs well under
+        a second; pass an explicit model to force one.  Unused when ``tau_R_ns``
+        is given.
     ct_lim : float                   tail fraction for S2 (2 = last half)
     n_free : int                     free amplitudes in the internal fit (5)
     accuracy : int                   exponential-sampling density (80)
@@ -51,19 +60,27 @@ class MethylRelaxation:
     Attributes set by :meth:`run`
     -----------------------------
     results : pandas.DataFrame       the per-methyl rates
-    diffusion : dict or None         the axial diffusion-tensor fit (Diso, Dratio,
-                                     Dpar, Dper, axis, tau_c_ns); None when
-                                     ``tau_R_ns`` was supplied and no fit was done
+    diffusion : dict or None         the diffusion-tensor fit that was used (see
+                                     :func:`mdrelax.tumbling.fit_diffusion`);
+                                     None when ``tau_R_ns`` was supplied and no
+                                     fit was done
+    diffusion_trials : dict or None  {model: fit} for all three models, when they
+                                     were fit to select one; None otherwise
     """
 
     def __init__(self, topology, trajectory, trajectory_fitted=None,
-                 field_MHz=950.0, tau_R_ns=None, ct_lim=2.0, n_free=5,
-                 accuracy=80, max_lag_fraction=0.5, traj_step=1, verbose=True):
+                 field_MHz=950.0, tau_R_ns=None, diffusion_model=None,
+                 ct_lim=2.0, n_free=5, accuracy=80, max_lag_fraction=0.5,
+                 traj_step=1, verbose=True):
+        if diffusion_model is not None and diffusion_model not in tumbling.MODELS:
+            raise ValueError("diffusion_model must be None (auto-select) or one "
+                             f"of {tumbling.MODELS}, got {diffusion_model!r}")
         self.topology = topology
         self.trajectory = trajectory
         self.trajectory_fitted = trajectory_fitted
         self.field_MHz = field_MHz
         self.tau_R_ns = tau_R_ns
+        self.diffusion_model = diffusion_model
         self.ct_lim = ct_lim
         self.n_free = n_free
         self.accuracy = accuracy
@@ -86,7 +103,7 @@ class MethylRelaxation:
         Returns
         -------
         ({methyl_label: tau_R_ns}, fit) : the per-methyl tumbling times and the
-            axial diffusion-tensor fit (Diso, Dratio, Dpar, Dper, axis, tau_c_ns).
+            diffusion-tensor fit (:func:`mdrelax.tumbling.fit_diffusion`).
         """
         u = mda.Universe(self.topology, self.trajectory, in_memory=True,
                          in_memory_step=self.traj_step)
@@ -111,12 +128,20 @@ class MethylRelaxation:
         nh_ref = np.array([p['H'].position - p['N'].position for p in pairs])
         cc = np.array([g['C'].position - g['C_axis'].position for g in groups])
 
-        fit = tumbling.fit_axial_diffusion(tauM, nh_ref)
-        self._log(f"  Diso={fit['Diso']*1e-7:.3f}e7 s^-1  Dpar/Dper={fit['Dratio']:.3f}"
-                  f"  tau_c={fit['tau_c_ns']:.2f} ns")
+        if self.diffusion_model is None:
+            fit, self.diffusion_trials = tumbling.select_diffusion_model(
+                tauM, nh_ref)
+            for m in tumbling.MODELS:
+                self._log(f"    {tumbling.describe(self.diffusion_trials[m])}")
+            for simple, cplx, F, p, ok in fit["selection"]:
+                self._log(f"    F({simple}->{cplx})={F:.3f} p={p:.3g} "
+                          f"-> {'accept' if ok else 'reject'} {cplx}")
+        else:
+            fit = tumbling.fit_diffusion(tauM, nh_ref, model=self.diffusion_model)
+            self.diffusion_trials = None
+        self._log(f"  using {tumbling.describe(fit)}")
 
-        tau_R = tumbling.methyl_tau_R(cc, fit['Diso'], fit['Dpar'],
-                                      fit['Dper'], fit['axis'])
+        tau_R = tumbling.tau_R_from_fit(cc, fit)
         return dict(zip([g['label'] for g in groups], tau_R)), fit
 
     # ── internal ACFs ───────────────────────────────────────────────────────
@@ -160,9 +185,10 @@ class MethylRelaxation:
 
         if self.tau_R_ns is not None:
             tau_R = np.array([self.tau_R_ns[l] for l in labels])
-            self.diffusion = None
+            self.diffusion = self.diffusion_trials = None
         else:
-            self._log("Estimating tumbling (backbone tau_M -> axial D tensor)...")
+            model = self.diffusion_model or "auto-selected"
+            self._log(f"Estimating tumbling (backbone tau_M -> {model} D tensor)...")
             tau_R_map, self.diffusion = self._compute_tau_R()
             tau_R = np.array([tau_R_map[l] for l in labels])
 

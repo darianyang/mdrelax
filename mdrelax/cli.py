@@ -8,6 +8,7 @@ import argparse
 
 from .nh import NHRelaxation
 from .methyl import MethylRelaxation
+from .tumbling import MODELS
 
 
 def nh_main(argv=None):
@@ -42,13 +43,20 @@ def methyl_main(argv=None):
     p.add_argument("--fitted", default=None,
                    help="Trajectory with tumbling removed (methyl internal motion).")
     p.add_argument("--field", "-f", type=float, default=950.0, metavar="MHz")
+    p.add_argument("--diffusion-model", choices=("auto",) + MODELS,
+                   default="auto",
+                   help="Rotational-diffusion model fit to the backbone tau_M. "
+                        "'auto' (default) fits all three and picks between them "
+                        "with an F-test.")
     p.add_argument("--ct_lim", type=float, default=2.0)
     p.add_argument("--step", type=int, default=1)
     p.add_argument("--out", "-o", default="methyl_rates.csv")
     p.add_argument("--quiet", "-q", action="store_true")
     a = p.parse_args(argv)
+    model = None if a.diffusion_model == "auto" else a.diffusion_model
     df = MethylRelaxation(a.topology, a.trajectory, trajectory_fitted=a.fitted,
-                          field_MHz=a.field, ct_lim=a.ct_lim, traj_step=a.step,
+                          field_MHz=a.field, diffusion_model=model,
+                          ct_lim=a.ct_lim, traj_step=a.step,
                           verbose=not a.quiet).run()
     df.to_csv(a.out, index=False)
     print(f"Wrote {a.out}")

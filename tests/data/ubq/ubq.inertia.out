@@ -1,0 +1,14 @@
+
+Input pdb file:  1ubq.prot.pdb                                                                   
+Output pdb file: 1ubq.prot.inertia.pdb                                                           
+ # atoms read        1230     # atoms skipped           0
+
+ mass                      8563.9004
+ center of mass              30.3128          28.8001          15.3504
+ principle moments       934104.0000      844540.7500      594138.9375
+ relative moments             1.0000           0.9041           0.6361
+
+                           rotation matrix
+              0.7981          -0.4332          -0.4187
+             -0.0741          -0.7603           0.6453
+             -0.5979          -0.4840          -0.6389

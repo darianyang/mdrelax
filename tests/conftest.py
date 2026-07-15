@@ -18,6 +18,10 @@ FF15IPQ = ROOT / "data-ch3-ff15ipq" / "tcf-1us"
 T4L_PDB = DATA_MD_T4L / "sim1_dry.pdb"
 T4L_XTC = DATA_MD_T4L / "segment_001.xtc"
 
+# The ubiquitin test case shipped with pdbinertia / quadric_diffusion, vendored
+# into the repo so the reference tests always run.  See tests/data/ubq/README.md.
+UBQ_DIR = ROOT / "tests" / "data" / "ubq"
+
 
 def _have(*paths):
     return all(Path(p).exists() for p in paths)
