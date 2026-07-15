@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mdrelax"
+version = "0.1.0"
+description = "NMR spin-relaxation rates (backbone 15N NH and side-chain methyl 2H) from MD simulation trajectories"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+authors = [{ name = "Darian Yang" }]
+dependencies = [
+    "numpy>=1.20",
+    "scipy>=1.7",
+    "pandas>=1.3",
+    "MDAnalysis>=2.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7.0"]
+plot = ["matplotlib>=3.3"]
+reference = ["mdtraj>=1.9", "lmfit>=1.0"]
+
+[project.scripts]
+mdrelax-nh = "mdrelax.cli:nh_main"
+mdrelax-methyl = "mdrelax.cli:methyl_main"
+
+[tool.setuptools.packages.find]
+include = ["mdrelax*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

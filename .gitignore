@@ -4,3 +4,12 @@ tcf*
 *.npz
 *.swp
 .DS_Store
+
+# python build / cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.eggs/

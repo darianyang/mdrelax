@@ -4,8 +4,10 @@ import matplotlib.pyplot as plt
 
 blocks = []
 current = []
+#system = "bb"
+system = "methyl"
 
-with open("tcf_bb/bb.xvg") as f:
+with open(f"tcf_{system}/{system}.xvg") as f:
     for line in f:
         line = line.strip()
 
@@ -33,4 +35,4 @@ plt.title("tau_c Estimate from GMX ACF")
 plt.xlabel("Lag Time (frames)")
 plt.ylabel("ACF")
 
-plt.savefig("bb_tcfs.png", dpi=300)
+plt.savefig(f"{system}_tcfs.png", dpi=300)
