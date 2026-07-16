@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA_MD_T4L = ROOT / "data" / "md-t4l"
 DATA_NH = ROOT / "data" / "nh"
 FF15IPQ = ROOT / "data" / "ch3-ff15ipq" / "tcf-1us"
+CH3_EXP = ROOT / "data" / "ch3" / "experimental"
 
 T4L_PDB = DATA_MD_T4L / "sim1_dry.pdb"
 T4L_XTC = DATA_MD_T4L / "segment_001.xtc"
@@ -32,6 +33,10 @@ needs_t4l = pytest.mark.skipif(
 needs_ff15ipq = pytest.mark.skipif(
     not _have(FF15IPQ / "results" / "rates.pkl"),
     reason="ff15ipq ABSURDer reference data not present")
+needs_ch3_exp = pytest.mark.skipif(
+    not _have(CH3_EXP / "md.npy", CH3_EXP / "nmr_rates.npy",
+              CH3_EXP / "nmr_errors.npy"),
+    reason="ch3 experimental reweighting data not present")
 
 
 def load_pkl(path):

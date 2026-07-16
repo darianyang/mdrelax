@@ -43,6 +43,35 @@ df_me = MethylRelaxation("topol.pdb", "traj_nopbc.xtc",
 
 Both `run()` calls return a `pandas.DataFrame` (per residue / per methyl).
 
+### Reweighting against experiment
+
+Given rates computed on independent trajectory blocks plus experimental values,
+`mdrelax.Reweighter` finds new block weights that improve agreement with
+experiment while staying as close as possible to the prior (force-field)
+weights — the Bayesian / Maximum-Entropy (ABSURDer / BME) scheme. It minimises
+`½·χ²(w) − θ·S_rel(w)`, where `χ²` is summed over **all** `m` measurements
+(equivalently `(m/2)·χ²_red`), `S_rel = −Σ wₐ·ln(wₐ/w⁰ₐ)` is the relative
+entropy, and `θ` trades data agreement against departure from the prior. Using
+the total (not reduced) `χ²` keeps `θ` comparable to published values — on
+`data/ch3/experimental` the L-curve knee falls near ABSURDer's reported optimum
+(θ≈1400, φ_eff≈0.2). Weights
+are parameterised as a prior-anchored softmax of an unconstrained vector, so
+normalisation and positivity are automatic and the closed-form gradient makes
+L-BFGS fast even with thousands of blocks.
+
+```python
+from mdrelax import Reweighter, select_theta
+
+# calc: (n_obs, n_blocks) rates per block; exp/err: (n_obs,) experiment +/- error
+rw = Reweighter(calc, exp, err)          # prior defaults to uniform block weights
+scan = rw.scan()                         # ladder of theta for the L-curve
+res, _ = rw.optimize(select_theta(scan).theta)   # knee of the L-curve
+print(res.chi2_red_prior, "->", res.chi2_red, " phi_eff=", res.phi_eff)
+```
+
+`θ` can be given explicitly or chosen from the L-curve knee (χ²_red vs the
+effective fraction `φ_eff = exp(S_rel)`) with `select_theta`.
+
 ### Choosing the diffusion model
 
 The rotational-diffusion model fit to the backbone τ_M depends on the protein's
@@ -109,9 +138,11 @@ mdrelax/
   tumbling.py          tau_c, backbone tau_M, diffusion tensor, per-methyl tau_R
   nh.py                NHRelaxation orchestrator
   methyl.py            MethylRelaxation orchestrator
+  reweight.py          maximum-entropy (BME) block reweighting to experiment
   cli.py               mdrelax-nh / mdrelax-methyl entry points
 reference/absurder/    original ABSURDer scripts (provenance / cross-check)
-examples/              validate_nh.py, validate_ch3.py, validate_ch3_exp.py
+examples/              validate_nh.py, validate_ch3.py, validate_ch3_exp.py,
+                       validate_ch3_reweight.py
 data/                  reference data (see Validation)
   nh/                  experimental backbone R1/R2/NOE at 500/600/800 MHz
   ch3/                 experimental methyl NMR rates + ABSURDer reweighting data
@@ -174,6 +205,12 @@ pytest -q
     the 1 µs backbone fit, exactly as ABSURDer does (`--lblocks_m 10000` for
     methyls, `--lblocks_bb 1000000` for the backbone). Use `--estimate-tau-R`
     when your trajectory is long compared with τ_c.
+* **Reweighting** (`mdrelax.reweight`) — `tests/test_reweight.py` checks the
+  analytic gradient against finite differences, that `θ→∞` recovers the prior
+  and small `θ` fits harder, that a planted matching block is recovered, and
+  that reweighting the 73 experimental methyls (`data/ch3/experimental/md.npy`,
+  1497 blocks) lowers χ²_red. `examples/validate_ch3_reweight.py` plots the
+  prior vs reweighted rate correlations, the L-curve, and the block weights.
 
 Reference data lives under `data/`: `nh/` (experimental backbone rates),
 `ch3/` (experimental NMR + ABSURDer reweighting data), `ch3-ff15ipq/` (ABSURDer

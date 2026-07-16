@@ -7,6 +7,8 @@ and side-chain methyl 2H (R_Dz, R_Dy, R_3Dz2) via
 
 from .nh import NHRelaxation
 from .methyl import MethylRelaxation
+from .reweight import Reweighter, ReweightResult, select_theta
 
 __version__ = "0.1.0"
-__all__ = ["NHRelaxation", "MethylRelaxation"]
+__all__ = ["NHRelaxation", "MethylRelaxation",
+           "Reweighter", "ReweightResult", "select_theta"]
