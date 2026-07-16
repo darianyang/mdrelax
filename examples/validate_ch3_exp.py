@@ -3,8 +3,8 @@
 
 This is the full user-facing pipeline: give it a trajectory and it computes the
 methyl C-H correlation functions, fits them, builds J(omega) and returns the three
-experimentally measured deuterium rates - R(Dz), R(Dy), R(3Dz^2-2) - which are
-then compared to the measured NMR values in ``data-ch3/experimental/``.
+experimentally measured deuterium rates: R(Dz), R(Dy), R(3Dz^2-2) - which are
+then compared to the measured NMR values in ``data/ch3/experimental/``.
 
 Nothing is precomputed here: the TCFs are calculated inside
 :class:`mdrelax.MethylRelaxation`.  Compare with ``validate_ch3.py``, which
@@ -23,7 +23,7 @@ Pass ``--estimate-tau-R`` to instead derive it from the given trajectory, which 
 the right choice when your trajectory is long compared with tau_c.
 
 Everything else (block/fit lengths, sampling) is derived from the trajectory
-itself by MethylRelaxation - nothing about the time axis is hardcoded.
+itself by MethylRelaxation; nothing about the time axis is hardcoded.
 """
 
 import argparse
@@ -38,8 +38,8 @@ import matplotlib.pyplot as plt
 from mdrelax import MethylRelaxation
 
 ROOT = Path(__file__).resolve().parent.parent
-FF = ROOT / "data-ch3-ff15ipq"
-EXP = ROOT / "data-ch3" / "experimental"
+FF = ROOT / "data" / "ch3-ff15ipq"
+EXP = ROOT / "data" / "ch3" / "experimental"
 RATE_COLS = ["R_Dz", "R_Dy", "R_3Dz2"]
 RATE_NAMES = ["R(Dz)", "R(Dy)", "R(3Dz$^2$-2)"]
 
@@ -106,7 +106,7 @@ def main():
     # --- experimental rates ------------------------------------------------
     rex = np.load(EXP / "nmr_rates.npy")            # (3, 73)
     eex = np.load(EXP / "nmr_errors.npy")           # (3, 73)
-    methyls_nmr = load_pkl(ROOT / "data-ch3" / "methyls_nmr.pkl")
+    methyls_nmr = load_pkl(ROOT / "data" / "ch3" / "methyls_nmr.pkl")
 
     missing = [l for l in methyls_nmr if norm(l) not in md]
     if missing:

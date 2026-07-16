@@ -8,13 +8,13 @@ Nuclear spin-relaxation rates from MD simulation trajectories.
 * **Side-chain methyl ²H**: the three experimentally measured rates R(D_z),
   R(D_y), and R(3D_z²−2) (quadrupolar order).
 
-It is a pure-Python (numpy / scipy / MDAnalysis) reimplementation of the standard
-model-free (backbone) and spectral-density-mapping (methyl) workflows. The methyl
-path reproduces the [ABSURDer](https://github.com/felixkum/ABSURDer) results
+This is a pure-Python (numpy / scipy / MDAnalysis) reimplementation of standard
+model-free (backbone) and spectral-density-mapping (methyl) workflows for NMR 
+relaxation calculations. The methyl relaxation calculations are based on the ones 
+from [ABSURDer](https://github.com/KULL-Centre/ABSURDer), but now all in Python /
 **without** GROMACS, pdbinertia, or quadric_diffusion: the per-methyl tumbling
 time τ_R is obtained from a pure-Python rotational diffusion-tensor fit, which
-reproduces pdbinertia and quadric_diffusion on their own ubiquitin test case
-(see [Validation](#validation)).
+reproduces pdbinertia and quadric_diffusion on the ubiquitin test case.
 
 ## Install
 
@@ -54,7 +54,7 @@ By default `MethylRelaxation` does not assume: it fits **all three and picks
 between them with an F-test**, the criterion quadric's output is built around.
 That costs ~0.5 s against the minutes the correlation functions take, so it is
 free in practice. Pass `diffusion_model="axial"` (or `"iso"`/`"aniso"`) to force
-one — e.g. for ABSURDer parity — and it is ignored entirely if you supply
+one (e.g. for ABSURDer parity) and it is ignored entirely if you supply
 `tau_R_ns` yourself. The fit used is left on `.diffusion`, the three candidates
 on `.diffusion_trials`.
 
@@ -112,6 +112,11 @@ mdrelax/
   cli.py               mdrelax-nh / mdrelax-methyl entry points
 reference/absurder/    original ABSURDer scripts (provenance / cross-check)
 examples/              validate_nh.py, validate_ch3.py, validate_ch3_exp.py
+data/                  reference data (see Validation)
+  nh/                  experimental backbone R1/R2/NOE at 500/600/800 MHz
+  ch3/                 experimental methyl NMR rates + ABSURDer reweighting data
+  ch3-ff15ipq/         ABSURDer TCFs, tau_R and rates, 1 us ff15ipq T4L
+  md-t4l/              10 ns T4L test trajectory
 tests/                 pytest suite
   data/ubq/            pdbinertia + quadric ubiquitin test case (their outputs)
 ```
@@ -145,8 +150,8 @@ pytest -q
   test rotates the input frame and checks the tensor co-rotates. Those F values
   are also what the default model selection consumes: it lands on `axial` for
   ubiquitin, its accepted description.
-* **Backbone NH** on `data-md-t4l` (10 ns T4L) vs experimental 600 MHz data
-  (`data-nh`): mean R₁ 1.13 vs 1.18, R₂ 13.1 vs 13.9, NOE 0.86 vs 0.79 s⁻¹.
+* **Backbone NH** on `data/md-t4l` (10 ns T4L) vs experimental 600 MHz data
+  (`data/nh`): mean R₁ 1.13 vs 1.18, R₂ 13.1 vs 13.9, NOE 0.86 vs 0.79 s⁻¹.
   Per-residue detail is limited by the short trajectory; magnitudes are correct.
   → `python examples/validate_nh.py`
 * **Methyl ²H** — two cross-checks with deliberately different scope:
@@ -156,7 +161,7 @@ pytest -q
     (`accuracy`, `ct_lim`, `wD`) to compare like for like. Reproduces all three
     rates at **r > 0.9999, MAD < 0.2 s⁻¹**. The pure-Python τ_R matches the
     pdbinertia+quadric reference to ~0.15 ns (Diso within ~1.3 %).
-  * **vs experiment** (`data-ch3/experimental/`, 73 measured methyls @ 950 MHz)
+  * **vs experiment** (`data/ch3/experimental/`, 73 measured methyls @ 950 MHz)
     — `examples/validate_ch3_exp.py`. The real workflow: hand it a trajectory
     and `MethylRelaxation` computes the TCFs itself, deriving the whole time
     axis from the trajectory. Accepts `--topology/--traj/--fitted/--field`, so
@@ -170,6 +175,7 @@ pytest -q
     methyls, `--lblocks_bb 1000000` for the backbone). Use `--estimate-tau-R`
     when your trajectory is long compared with τ_c.
 
-Reference data lives in `data-nh/`, `data-ch3/` (experimental NMR + ABSURDer
-reweighting data), and `data-ch3-ff15ipq/` (ABSURDer TCFs, τ_R, and rates for the
-1 µs ff15ipq T4L trajectory).
+Reference data lives under `data/`: `nh/` (experimental backbone rates),
+`ch3/` (experimental NMR + ABSURDer reweighting data), `ch3-ff15ipq/` (ABSURDer
+TCFs, τ_R, and rates for the 1 µs ff15ipq T4L trajectory), and `md-t4l/` (the
+10 ns T4L test trajectory).

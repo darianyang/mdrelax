@@ -28,7 +28,7 @@ def test_nh_output_shape_and_finiteness(nh_df):
 
 @needs_t4l
 def test_nh_deterministic_snapshot(nh_df):
-    # Values computed with this pipeline on data-md-t4l at 600 MHz, tau_c=10.5 ns.
+    # Values computed with this pipeline on data/md-t4l at 600 MHz, tau_c=10.5 ns.
     # Tolerances catch regressions while allowing tiny platform fit differences.
     assert nh_df["R1"].mean() == pytest.approx(1.126, abs=0.03)
     assert nh_df["R2"].mean() == pytest.approx(13.08, abs=0.3)

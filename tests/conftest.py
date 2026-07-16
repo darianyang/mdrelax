@@ -11,9 +11,9 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 
 # ── data locations ─────────────────────────────────────────────────────────
-DATA_MD_T4L = ROOT / "data-md-t4l"
-DATA_NH = ROOT / "data-nh"
-FF15IPQ = ROOT / "data-ch3-ff15ipq" / "tcf-1us"
+DATA_MD_T4L = ROOT / "data" / "md-t4l"
+DATA_NH = ROOT / "data" / "nh"
+FF15IPQ = ROOT / "data" / "ch3-ff15ipq" / "tcf-1us"
 
 T4L_PDB = DATA_MD_T4L / "sim1_dry.pdb"
 T4L_XTC = DATA_MD_T4L / "segment_001.xtc"
@@ -28,7 +28,7 @@ def _have(*paths):
 
 
 needs_t4l = pytest.mark.skipif(
-    not _have(T4L_PDB, T4L_XTC), reason="data-md-t4l trajectory not present")
+    not _have(T4L_PDB, T4L_XTC), reason="data/md-t4l trajectory not present")
 needs_ff15ipq = pytest.mark.skipif(
     not _have(FF15IPQ / "results" / "rates.pkl"),
     reason="ff15ipq ABSURDer reference data not present")

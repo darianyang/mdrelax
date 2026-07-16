@@ -12,8 +12,8 @@ density / rate port alone and not to a difference in how the TCFs are built.  It
 therefore also pins ABSURDer's own run settings (accuracy, ct_lim, wD) so the two
 calculations are compared like for like.
 
-For the normal "give it a trajectory" workflow - where mdrelax computes the TCFs
-itself and derives the time axis from the trajectory - see ``validate_ch3_exp.py``
+For the normal "give it a trajectory" workflow where mdrelax computes the TCFs
+itself and derives the time axis from the trajectory, see ``validate_ch3_exp.py``
 or use :class:`mdrelax.MethylRelaxation` directly.
 """
 
@@ -31,7 +31,7 @@ from mdrelax import fitting as F, spectral_density as SD, rates as R
 from mdrelax.constants import CHI_Q
 
 ROOT = Path(__file__).resolve().parent.parent
-FF = ROOT / "data-ch3-ff15ipq" / "tcf-1us"
+FF = ROOT / "data" / "ch3-ff15ipq" / "tcf-1us"
 
 # ABSURDer run settings, pinned so the port is compared like for like against
 # their published rates.pkl (their run used `--accuracy 80 --ct_lim 2

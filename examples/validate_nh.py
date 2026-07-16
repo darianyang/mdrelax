@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Backbone NH validation: MD (data-md-t4l) vs experiment (data-nh).
+"""Backbone NH validation: MD (data/md-t4l) vs experiment (data/nh).
 
 Runs the NH pipeline at 600 MHz with tau_c = 10.5 ns (from the experimental
 Diso of T4L) and overlays R1, R2 and the heteronuclear NOE against the
@@ -16,9 +16,9 @@ import matplotlib.pyplot as plt
 from mdrelax import NHRelaxation
 
 ROOT = Path(__file__).resolve().parent.parent
-PDB = ROOT / "data-md-t4l" / "sim1_dry.pdb"
-XTC = ROOT / "data-md-t4l" / "segment_001.xtc"
-EXP = ROOT / "data-nh" / "600MHz-R1R2NOE.dat"
+PDB = ROOT / "data" / "md-t4l" / "sim1_dry.pdb"
+XTC = ROOT / "data" / "md-t4l" / "segment_001.xtc"
+EXP = ROOT / "data" / "nh" / "600MHz-R1R2NOE.dat"
 
 
 def main():
