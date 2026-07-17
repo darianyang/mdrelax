@@ -90,9 +90,10 @@ def main():
                     color="0.5", elinewidth=0.5, capsize=0, label="prior (MD)")
         ax.errorbar(x, rew_avg[ri], yerr=rew_std[ri], fmt="o", ms=4, alpha=0.75,
                     color="tab:red", elinewidth=0.5, capsize=0, label="reweighted")
-        rp = np.corrcoef(x, prior_avg[ri])[0, 1]
-        rr = np.corrcoef(x, rew_avg[ri])[0, 1]
-        ax.set_title(f"{RATE_NAMES[ri]}\nr: {rp:.3f} -> {rr:.3f}")
+        chi2p = np.mean(((prior_avg[ri] - x) / xe) ** 2)
+        chi2r = np.mean(((rew_avg[ri] - x) / xe) ** 2)
+        ax.set_title(fr"{RATE_NAMES[ri]}" "\n"
+                     fr"$\chi^2_{{\rm red}}$: {chi2p:.2f} -> {chi2r:.2f}")
         ax.set_xlabel("experiment (s$^{-1}$)")
         ax.set_ylabel("MD (s$^{-1}$)")
         ax.set_xlim(lim)
