@@ -13,7 +13,7 @@ import pandas as pd
 import MDAnalysis as mda
 from MDAnalysis.analysis import align
 
-from . import acf, fitting, geometry, tumbling
+from . import acf, fitting, geometry, timestep, tumbling
 from .spectral_density import J_lipari_szabo, J_extended_mf
 from .rates import nh_rates_from_J
 
@@ -32,7 +32,11 @@ class NHRelaxation:
         1H Larmor frequency(ies) in MHz
     tau_c_ns : float or None       
         isotropic tau_c (ns); estimated if None
-    traj_step : int                
+    dt_ps : float or None
+        save interval of the trajectory in ps, before ``traj_step``; read from
+        the file header when None, which DCDs routinely get wrong (see
+        :mod:`mdrelax.timestep`)
+    traj_step : int
         stride when loading the trajectory
     align_traj : bool              
         align to CA to remove tumbling (default True)
@@ -45,12 +49,13 @@ class NHRelaxation:
     """
 
     def __init__(self, topology, trajectory, fields_MHz=600.0, tau_c_ns=None,
-                 traj_step=1, align_traj=True, max_lag_fraction=0.5,
+                 dt_ps=None, traj_step=1, align_traj=True, max_lag_fraction=0.5,
                  fit_fraction=0.5, verbose=True):
         self.topology = topology
         self.trajectory = trajectory
         self.fields = [fields_MHz] if np.isscalar(fields_MHz) else list(fields_MHz)
         self.tau_c_ns = tau_c_ns
+        self.dt_ps = dt_ps
         self.traj_step = traj_step
         self.align_traj = align_traj
         self.max_lag_fraction = max_lag_fraction
@@ -65,7 +70,7 @@ class NHRelaxation:
     def _load(self):
         self.u = mda.Universe(self.topology, self.trajectory, in_memory=True,
                               in_memory_step=self.traj_step)
-        self.dt_ps = float(self.u.trajectory.dt)
+        self.dt_ps = timestep.resolve_dt_ps(self.u, self.dt_ps, self.traj_step)
         self.n_frames = len(self.u.trajectory)
         self._log(f"Loaded {self.n_frames} frames, dt={self.dt_ps} ps "
                   f"({self.n_frames * self.dt_ps / 1000:.2f} ns)")

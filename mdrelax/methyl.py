@@ -19,7 +19,7 @@ import pandas as pd
 import MDAnalysis as mda
 from MDAnalysis.analysis import align
 
-from . import acf, fitting, geometry, tumbling
+from . import acf, fitting, geometry, timestep, tumbling
 from .spectral_density import J_multiexp
 from .rates import deuterium_rates, methyl_omega_D
 from .constants import CHI_Q
@@ -52,6 +52,10 @@ class MethylRelaxation:
         (:func:`mdrelax.tumbling.select_diffusion_model`), which costs well under
         a second; pass an explicit model to force one.  Unused when ``tau_R_ns``
         is given.
+    dt_ps : float or None
+        Save interval of the trajectory in ps, before ``traj_step``. Default
+        None reads it from the file header, which DCDs routinely get wrong --
+        see :mod:`mdrelax.timestep`. Supply it whenever you know it.
     ct_lim : float                   tail fraction for S2 (2 = last half)
     n_free : int                     free amplitudes in the internal fit (5)
     accuracy : int                   exponential-sampling density (80)
@@ -70,8 +74,8 @@ class MethylRelaxation:
 
     def __init__(self, topology, trajectory, trajectory_fitted=None,
                  field_MHz=950.0, tau_R_ns=None, diffusion_model=None,
-                 ct_lim=2.0, n_free=5, accuracy=80, max_lag_fraction=0.5,
-                 traj_step=1, verbose=True):
+                 dt_ps=None, ct_lim=2.0, n_free=5, accuracy=80,
+                 max_lag_fraction=0.5, traj_step=1, verbose=True):
         if diffusion_model is not None and diffusion_model not in tumbling.MODELS:
             raise ValueError("diffusion_model must be None (auto-select) or one "
                              f"of {tumbling.MODELS}, got {diffusion_model!r}")
@@ -81,6 +85,7 @@ class MethylRelaxation:
         self.field_MHz = field_MHz
         self.tau_R_ns = tau_R_ns
         self.diffusion_model = diffusion_model
+        self.dt_ps = dt_ps
         self.ct_lim = ct_lim
         self.n_free = n_free
         self.accuracy = accuracy
@@ -107,7 +112,7 @@ class MethylRelaxation:
         """
         u = mda.Universe(self.topology, self.trajectory, in_memory=True,
                          in_memory_step=self.traj_step)
-        dt = float(u.trajectory.dt)
+        dt = timestep.resolve_dt_ps(u, self.dt_ps, self.traj_step)
         n_frames = len(u.trajectory)
         pairs = geometry.find_nh_pairs(u)
         nh_vecs_traj = geometry.collect_vectors(u, pairs)     # tumbling present
@@ -118,7 +123,7 @@ class MethylRelaxation:
         tcf = np.column_stack([np.arange(max_lag) * dt, nh_acfs])
         l_block_ps = n_frames * dt
         tauM = tumbling.fit_backbone_tauM(
-            tcf, len(pairs), l_block_ps=l_block_ps,
+            tcf, len(pairs), l_block_ps=l_block_ps, dt_ps=dt,
             start_tau_ps=max(l_block_ps / 100.0, 5000.0),
             accuracy=100)
 
@@ -160,7 +165,7 @@ class MethylRelaxation:
             ref = mda.Universe(self.topology)
             align.AlignTraj(u, ref, select="protein and name CA",
                             in_memory=True).run()
-        dt = float(u.trajectory.dt)
+        dt = timestep.resolve_dt_ps(u, self.dt_ps, self.traj_step)
         n_frames = len(u.trajectory)
         # re-find groups in this universe (atom objects are universe-specific)
         groups_u = geometry.find_methyl_groups(u)

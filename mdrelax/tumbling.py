@@ -60,13 +60,19 @@ def _exp_points(simlength, fit_length, accuracy):
     return np.unique([int(np.round(v)) for v in tmp if v < fit_length])
 
 
-def fit_backbone_tauM(tcf_bb, n_nh, l_block_ps, start_tau_ps=10000.0,
+def fit_backbone_tauM(tcf_bb, n_nh, l_block_ps, dt_ps=1.0, start_tau_ps=10000.0,
                       accuracy=100):
     """Per-residue backbone tumbling times tau_M (ps) from N-H TCFs.
 
     Ports the ABSURDer simple/extended Lipari-Szabo fit and model-selection
     logic.  ``tcf_bb`` is a single block array with time in column 0 and one
     N-H correlation function per subsequent column.
+
+    ``dt_ps`` is the spacing between successive rows of ``tcf_bb``.  The fit
+    points are chosen in ps (they come from ``l_block_ps``) but have to be read
+    out as row indices, so the two only coincide when one row is one ps --
+    ABSURDer's case, and the default here for backwards compatibility.  Passing
+    the real spacing keeps the fit on the rows it actually meant to sample.
 
     Returns
     -------
@@ -76,7 +82,12 @@ def fit_backbone_tauM(tcf_bb, n_nh, l_block_ps, start_tau_ps=10000.0,
     tcf_bb = np.asarray(tcf_bb)
     fit_length = int(l_block_ps / 2)
     exp_t = _exp_points(l_block_ps, fit_length, accuracy)
-    t = exp_t.astype(float)
+    # ps -> row index, de-duplicated (coarse dt maps several early points onto
+    # the same row) and clipped to the rows that exist
+    rows = np.unique(np.round(exp_t / dt_ps).astype(int))
+    rows = rows[rows < tcf_bb.shape[0]]
+    t = rows.astype(float) * dt_ps
+    exp_t = rows
 
     delta = start_tau_ps
     lo_a, hi_a = start_tau_ps - delta, start_tau_ps + delta
